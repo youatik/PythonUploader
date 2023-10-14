@@ -4,6 +4,10 @@ from sqlalchemy import create_engine, Column, Integer, String, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
+from flask import send_file
+import io
+
+
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 app = Flask(__name__)
@@ -44,6 +48,47 @@ def upload_file():
             return 'File uploaded successfully.'
 
     return render_template('upload.html')
+
+
+@app.route('/download', methods=['GET', 'POST'])
+def download_file():
+    if request.method == 'POST':
+        file_id = request.form['file_id']
+        session = Session()
+        file_record = session.query(File).filter_by(id=file_id).first()
+
+        if file_record:
+            # Send the file data as a response with a custom filename
+            return send_file(
+                io.BytesIO(file_record.data),
+                as_attachment=True,  # Treat as an attachment
+                download_name=file_record.filename  # Custom filename
+            )
+        else:
+            return 'File not found', 404
+
+    # Query the database to fetch a list of available files
+    session = Session()
+    files = session.query(File).all()
+
+    return render_template('download.html', files=files)
+'''
+
+@app.route('/download/<int:file_id>')
+def download_file(file_id):
+    session = Session()
+    file_record = session.query(File).filter_by(id=file_id).first()
+
+    if file_record:
+        # Send the file data as a response
+        return send_file(
+            io.BytesIO(file_record.data),
+            as_attachment=True,  # Treat as an attachment
+            download_name=file_record.filename  # Custom filename
+        )
+    else:
+        return 'File not found', 404
+'''
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS

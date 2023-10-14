@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Download File</title>
+</head>
+<body>
+    <h1>Download a File</h1>
+    <form method="POST" action="/download">
+        <label for="file_id">Select a file to download:</label>
+        <select id="file_id" name="file_id">
+            {% for file in files %}
+                <option value="{{ file.id }}">{{ file.filename }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="Download">
+    </form>
+</body>
+</html>
