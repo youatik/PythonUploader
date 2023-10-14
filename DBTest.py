@@ -16,7 +16,7 @@ def get_file_info():
 
         file_info = []
         for file in files:
-            file_info.append(f"File ID: {file.id}, Filename: {file.filename}, Size: {len(file.data)} bytes")
+            file_info.append(f"File ID: {file.id}, Filename: {file.filename}, Size: {len(file.data)} bytes, Base62 Result: {file.base62_result}")
 
         return "\n".join(file_info)
     finally:
