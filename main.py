@@ -27,6 +27,9 @@ class File(Base):
 # Create the table in the database (Run this once to initialize the database)
 Base.metadata.create_all(engine)
 
+@app.route('/')
+def main_page():
+    return render_template('main_page.html')
 @app.route('/upload', methods=['GET'])
 def show_upload_form():
     return render_template('upload.html')
@@ -46,54 +49,61 @@ def download_by_keyword_form_decrypted():
     return render_template('downloadbykeyworddecrypted.html')
 
 
-
 @app.route('/upload', methods=['POST'])
 def handle_upload():
     uploaded_file = request.files['file']
+    encryption_key = request.form['encryption_key']
+
+    message = ''
 
     if uploaded_file and allowed_file(uploaded_file.filename):
         filename = secure_filename(uploaded_file.filename)
         file_data = uploaded_file.read()
 
-        # Encrypt the file data
-        encrypted_data = encrypt("your_encryption_key", file_data)
-
-        # Calculate the Base62 result
+        encrypted_data = encrypt(encryption_key, file_data)
         unique_number = generate_unique_number()
         base62_result = encode(unique_number, BASE62)
 
-        # Store the encrypted file data and Base62 result in the database
         session = Session()
         new_file = File(filename=filename, data=encrypted_data, base62_result=base62_result)
         session.add(new_file)
         session.commit()
         session.close()
 
-        return 'File uploaded and encrypted successfully.'
+        message = f'File uploaded and encrypted successfully. File can be retrieved with {base62_result}.'
+    else:
+        message = 'File upload failed. Please check the file and try again.'
 
-    return 'File upload failed. Please check the file and try again.'
+    return render_template('result.html', message=message)
 
 
-
+from flask import render_template
 
 @app.route('/download', methods=['POST'])
 def handle_download():
     file_id = request.form['file_id']
+    encryption_key = request.form['encryption_key']  # retrieve the provided encryption key
+
     session = Session()
     file_record = session.query(File).filter_by(id=file_id).first()
 
     if file_record:
-        # Decrypt the file data
-        decrypted_data = decrypt("your_encryption_key", file_record.data)
+        try:
+            # Use the provided encryption key for decryption
+            decrypted_data = decrypt(encryption_key, file_record.data)
 
-        # Send the decrypted file data as a response with a custom filename
-        return send_file(
-            io.BytesIO(decrypted_data),
-            as_attachment=True,  # Treat as an attachment
-            download_name=file_record.filename  # Custom filename
-        )
+            # Send the decrypted file data as a response with a custom filename
+            return send_file(
+                io.BytesIO(decrypted_data),
+                as_attachment=True,
+                download_name=file_record.filename
+            )
+        except:  # This exception handles a wrong encryption key or any other decryption error.
+            message = "Decryption failed. Possibly wrong encryption key."
+            return render_template('result.html', message=message)
     else:
-        return 'File not found', 404
+        message = 'File not found'
+        return render_template('result.html', message=message), 404
 
 
 
@@ -101,6 +111,10 @@ def handle_download():
 
 
 
+
+
+
+from flask import render_template
 
 @app.route('/downloadbykeyword', methods=['POST'])
 def download_file_by_keyword():
@@ -117,30 +131,38 @@ def download_file_by_keyword():
                 download_name=file_record.filename  # Custom filename
             )
         else:
-            return 'File not found for the specified keyword.', 404
+            message = 'File not found for the specified keyword.'
+            return render_template('result.html', message=message), 404
+
 
 
 
 
 @app.route('/downloadbykeyworddecrypted', methods=['POST'])
 def download_file_by_keyword_decrypted():
-    if request.method == 'POST':
-        keyword = request.form['keyword']
-        session = Session()
-        file_record = session.query(File).filter_by(base62_result=keyword).first()
+    keyword = request.form['keyword']
+    encryption_key = request.form['encryption_key']  # retrieve the provided encryption key
 
-        if file_record:
-            # Decrypt the file data
-            decrypted_data = decrypt("your_encryption_key", file_record.data)
+    session = Session()
+    file_record = session.query(File).filter_by(base62_result=keyword).first()
+
+    if file_record:
+        try:
+            # Use the provided encryption key for decryption
+            decrypted_data = decrypt(encryption_key, file_record.data)
 
             # Send the decrypted file data as a response with a custom filename
             return send_file(
                 io.BytesIO(decrypted_data),
-                as_attachment=True,  # Treat as an attachment
-                download_name=file_record.filename  # Custom filename
+                as_attachment=True,
+                download_name=file_record.filename
             )
-        else:
-            return 'File not found for the specified keyword.', 404
+        except:  # This exception handles a wrong encryption key or any other decryption error.
+            message = "Decryption failed. Possibly wrong encryption key."
+            return render_template('result.html', message=message), 400
+    else:
+        message = 'File not found for the specified keyword.'
+        return render_template('result.html', message=message), 404
 
 
 @app.route('/serverinfo')
