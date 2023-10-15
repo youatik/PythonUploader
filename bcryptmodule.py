@@ -1,28 +1,38 @@
+import os
+
 import bcrypt
 
 
-def encrypt(key, file):
-    salt = bcrypt.gensalt()
-    key = bcrypt.hashpw(key.encode(), salt)
-    key *= int(len(file) / len(key)) + 1
+def _hash_password(salt, password):
+    password = bytearray(salt + password.encode())
+    for iterator in range(1, 16):
+        for index in range(len(password)):
+            password[index] ^= password[(index + iterator) % len(password)]
+    return password
+
+
+def encrypt(password, file):
+    salt = os.urandom(16)
+    password = _hash_password(salt, password)
+    password *= int(len(file) / len(password)) + 1
     result = bytearray(file)
     for i in range(len(file)):
-        result[i] ^= key[i]
+        result[i] ^= password[i]
     for i in range(len(file)):
-        result[i], result[key[i] ** key[i] % len(result)] = result[key[i] ** key[i] % len(result)], result[i]
+        result[i], result[password[i] ** password[i] % len(result)] = result[password[i] ** password[i] % len(result)], result[i]
     return salt + bytes(result)
 
 
-def decrypt(key, file):
-    salt = file[:29]
-    file = file[29:]
-    key = bcrypt.hashpw(key.encode(), salt)
-    key *= int(len(file) / len(key)) + 1
+def decrypt(password, file):
+    salt = file[:16]
+    file = file[16:]
+    password = _hash_password(salt, password)
+    password *= int(len(file) / len(password)) + 1
     result = bytearray(file)
     for i in range(len(file)-1, -1, -1):
-        result[i], result[key[i] ** key[i] % len(result)] = result[key[i] ** key[i] % len(result)], result[i]
+        result[i], result[password[i] ** password[i] % len(result)] = result[password[i] ** password[i] % len(result)], result[i]
     for i in range(len(file)):
-        result[i] ^= key[i]
+        result[i] ^= password[i]
     return bytes(result)
 
 
