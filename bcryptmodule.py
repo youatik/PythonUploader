@@ -1,18 +1,19 @@
 import os
 
-import bcrypt
-
 
 def _hash_password(salt, password):
     password = bytearray(salt + password.encode())
-    for iterator in range(1, 16):
-        for index in range(len(password)):
-            password[index] ^= password[(index + iterator) % len(password)]
+    for i in range(len(password)):
+        password[i] ^= password[(i + 1) % len(password)]
+    for i in range(len(password)):
+        temp = password[password[i] ** password[(i + 1) % len(password)] % len(password)]
+        password[password[i] ** password[(i + 1) % len(password)] % len(password)] = password[i]
+        password[i] = temp
     return password
 
 
 def encrypt(password, file):
-    salt = os.urandom(16)
+    salt = os.urandom(64)
     password = _hash_password(salt, password)
     password *= int(len(file) / len(password)) + 1
     result = bytearray(file)
@@ -24,8 +25,8 @@ def encrypt(password, file):
 
 
 def decrypt(password, file):
-    salt = file[:16]
-    file = file[16:]
+    salt = file[:64]
+    file = file[64:]
     password = _hash_password(salt, password)
     password *= int(len(file) / len(password)) + 1
     result = bytearray(file)
@@ -36,14 +37,21 @@ def decrypt(password, file):
     return bytes(result)
 
 
-password = "Password123"
-print("Password: ", password)
+if __name__ == '__main__':
+    example_password = "Password123"
+    print("Password: ", example_password)
 
-data = b"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc sed diam commodo, efficitur nisi sed, egestas mi. Nam vel consectetur justo. Aliquam sed elit velit. Nullam cursus id orci fringilla laoreet. Aliquam dictum hendrerit libero. Etiam vitae sem at orci consectetur feugiat. Mauris justo massa, lobortis a hendrerit sed, fringilla nec magna. Praesent diam arcu, lacinia id felis non, luctus varius purus. Aliquam erat volutpat. Duis ut enim sed orci placerat vulputate. Curabitur tristique fringilla dui id fermentum. Vestibulum eget consectetur mi, varius viverra purus. Donec at vestibulum leo."
-print("Data:     ", data)
+    example_data = (b"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc sed diam commodo, efficitur nisi "
+                    b"sed, egestas mi. Nam vel consectetur justo. Aliquam sed elit velit. Nullam cursus id orci "
+                    b"fringilla laoreet. Aliquam dictum hendrerit libero. Etiam vitae sem at orci consectetur "
+                    b"feugiat. Mauris justo massa, lobortis a hendrerit sed, fringilla nec magna. Praesent diam arcu, "
+                    b"lacinia id felis non, luctus varius purus. Aliquam erat volutpat. Duis ut enim sed orci "
+                    b"placerat vulputate. Curabitur tristique fringilla dui id fermentum. Vestibulum eget consectetur "
+                    b"mi, varius viverra purus. Donec at vestibulum leo.")
+    print("Data:     ", example_data)
 
-encrypted = encrypt(password, data)
-print("Encrypted:", encrypted)
+    encrypted = encrypt(example_password, example_data)
+    print("Encrypted:", encrypted)
 
-decrypted = decrypt(password, encrypted)
-print("Decrypted:", decrypted)
+    decrypted = decrypt(example_password, encrypted)
+    print("Decrypted:", decrypted)
