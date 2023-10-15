@@ -28,58 +28,62 @@ class File(Base):
 # Create the table in the database (Run this once to initialize the database)
 Base.metadata.create_all(engine)
 
-@app.route('/upload', methods=['GET', 'POST'])
-def upload_file():
-    if request.method == 'POST':
-        uploaded_file = request.files['file']
-
-        if uploaded_file and allowed_file(uploaded_file.filename):
-            filename = secure_filename(uploaded_file.filename)
-            file_data = uploaded_file.read()
-
-            # Encrypt the file data
-            encrypted_data = encrypt("your_encryption_key", file_data)
-
-            # Calculate the Base62 result
-            unique_number = generate_unique_number()
-            base62_result = encode(unique_number, BASE62)
-
-            # Store the encrypted file data and Base62 result in the database
-            session = Session()
-            new_file = File(filename=filename, data=encrypted_data, base62_result=base62_result)
-            session.add(new_file)
-            session.commit()
-            session.close()
-
-            return 'File uploaded and encrypted successfully.'
-
+@app.route('/upload', methods=['GET'])
+def show_upload_form():
     return render_template('upload.html')
 
-@app.route('/download', methods=['GET', 'POST'])
-def download_file():
-    if request.method == 'POST':
-        file_id = request.form['file_id']
+@app.route('/upload', methods=['POST'])
+def handle_upload():
+    uploaded_file = request.files['file']
+
+    if uploaded_file and allowed_file(uploaded_file.filename):
+        filename = secure_filename(uploaded_file.filename)
+        file_data = uploaded_file.read()
+
+        # Encrypt the file data
+        encrypted_data = encrypt("your_encryption_key", file_data)
+
+        # Calculate the Base62 result
+        unique_number = generate_unique_number()
+        base62_result = encode(unique_number, BASE62)
+
+        # Store the encrypted file data and Base62 result in the database
         session = Session()
-        file_record = session.query(File).filter_by(id=file_id).first()
+        new_file = File(filename=filename, data=encrypted_data, base62_result=base62_result)
+        session.add(new_file)
+        session.commit()
+        session.close()
 
-        if file_record:
-            # Decrypt the file data
-            decrypted_data = decrypt("your_encryption_key", file_record.data)
+        return 'File uploaded and encrypted successfully.'
 
-            # Send the decrypted file data as a response with a custom filename
-            return send_file(
-                io.BytesIO(decrypted_data),
-                as_attachment=True,  # Treat as an attachment
-                download_name=file_record.filename  # Custom filename
-            )
-        else:
-            return 'File not found', 404
+    return 'File upload failed. Please check the file and try again.'
 
-    # Query the database to fetch a list of available files
+
+@app.route('/download', methods=['GET'])
+def show_download_page():
     session = Session()
     files = session.query(File).all()
-
     return render_template('download.html', files=files)
+
+@app.route('/download', methods=['POST'])
+def handle_download():
+    file_id = request.form['file_id']
+    session = Session()
+    file_record = session.query(File).filter_by(id=file_id).first()
+
+    if file_record:
+        # Decrypt the file data
+        decrypted_data = decrypt("your_encryption_key", file_record.data)
+
+        # Send the decrypted file data as a response with a custom filename
+        return send_file(
+            io.BytesIO(decrypted_data),
+            as_attachment=True,  # Treat as an attachment
+            download_name=file_record.filename  # Custom filename
+        )
+    else:
+        return 'File not found', 404
+
 
 
 '''
